@@ -2,8 +2,8 @@
 const value = 10;
 const resultadoFinal = value * 2;
 
-// Adaptabilidad
-const message: string = 10;
+// Adaptabilidad (corregido tipo de dato)
+const message: string = '10';
 
 // Responsabilidad
 
@@ -12,3 +12,5 @@ class UserService {
 
   sendEmail() {}
 }
+
+export { value, resultadoFinal, message, UserService };

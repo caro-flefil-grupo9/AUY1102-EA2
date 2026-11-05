@@ -6,20 +6,21 @@ const app = express();
 
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Remediación SonarCloud (Reglas tssecurity:S5496 y typescript:S7790)
+// Se evita la inyección en plantilla (SSTI) compilando una plantilla estática y pasando los parámetros como variables locales
+const compiledTemplate = pug.compile(`doctype html
+html
+  head
+    title Hello world
+  body
+    form(action='/' method='post')
+      input#username.form-control(type='text' name='username' value=username)
+      button.btn.btn-primary(type='submit') Submit
+    p Hello #{username}`);
+
 app.post('/', (req, res) => {
   const input = req.body.username;
-  const template = `
-doctype
-html
-head
-    title= 'Hello world'
-body
-    form(action='/' method='post')
-        input#username.form-control(type='text' name='username' value='${input}')
-        button.btn.btn-primary(type='submit') Submit
-    p Hello ${input}`;
-  const fn = pug.compile(template);
-  const html = fn();
+  const html = compiledTemplate({ username: input });
   res.send(html);
 });
 
