@@ -15,6 +15,10 @@
   - **Francisco Flefil (Rama `ea2-pruebas-sonar`):** Pruebas unitarias, análisis de cobertura, análisis de código estático en SonarCloud, remediación de hallazgos y análisis de vulnerabilidades con `npm audit`.
   - **Javier Caro (Rama `ea2-snyk-seguridad`):** Análisis de dependencias y código en Snyk, remediación coordinada y configuración de GitHub Advanced Security (Dependabot, CodeQL y Secret Scanning).
 
+### Evidencia del Repositorio
+![Repositorio en GitHub](evidencias/01-repositorio.png)
+*Figura 1.1: Repositorio forkeado oficial en GitHub bajo la organización caro-flefil-grupo9.*
+
 ---
 
 ## 2. Pruebas unitarias y cobertura
@@ -175,3 +179,4 @@ Se accedió a la configuración de seguridad (`Settings > Code security and anal
 - **Repositorio oficial de código:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2](https://github.com/caro-flefil-grupo9/AUY1102-EA2)
 - **Pull Request de Pruebas y Remediación:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/1](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/1)
 - **Documento Markdown entregable:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/EVALUACION_EA2.md](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/EVALUACION_EA2.md)
+
