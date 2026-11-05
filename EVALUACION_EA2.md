@@ -12,11 +12,12 @@
 - **Organización en GitHub:** [caro-flefil-grupo9](https://github.com/caro-flefil-grupo9)
 - **Repositorio oficial:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2](https://github.com/caro-flefil-grupo9/AUY1102-EA2)
 - **Distribución de roles:**
-  - **Francisco Flefil (Rama `ea2-pruebas-sonar`):** Pruebas unitarias, análisis de cobertura, análisis de código estático en SonarCloud, remediación de hallazgos y análisis de vulnerabilidades con `npm audit`.
-  - **Javier Caro (Rama `ea2-snyk-seguridad`):** Análisis de dependencias y código en Snyk, remediación coordinada y configuración de GitHub Advanced Security (Dependabot, CodeQL y Secret Scanning).
+  - **Francisco Flefil (Rama `ea2-pruebas-sonar`):** Pruebas unitarias, análisis de cobertura y análisis de código estático en SonarCloud.
+  - **Javier Caro (Rama `ea2-snyk-seguridad`):** Análisis con Snyk, remediación del Dockerfile y revisión de GitHub Advanced Security.
 
 ### Evidencia del Repositorio
 ![Repositorio en GitHub](evidencias/01-repositorio.png)
+[Ver captura del repositorio](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/01-repositorio.png)
 *Figura 1.1: Repositorio forkeado oficial en GitHub bajo la organización caro-flefil-grupo9.*
 
 ---
@@ -56,10 +57,24 @@ El análisis de Jest reveló que los siguientes componentes no cuentan con prueb
 
 ### Evidencias
 ![Pruebas Unitarias](evidencias/02-pruebas-unitarias.png)
+[Ver captura de pruebas unitarias](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/02-pruebas-unitarias.png)
 *Figura 2.1: Ejecución exitosa de las 18 pruebas unitarias sin fallos en terminal.*
 
 ![Cobertura Jest](evidencias/03-cobertura.png)
+[Ver captura de cobertura Jest](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/03-cobertura.png)
 *Figura 2.2: Tabla de porcentaje de cobertura emitida por Jest detallando archivos y líneas sin cubrir.*
+
+### Evidencia adicional: script de evaluación
+Se agregó el script `test:evaluacion` en `package.json` para ejecutar las pruebas unitarias y generar el reporte de cobertura mediante un solo comando.
+
+```bash
+npm run test:evaluacion
+```
+
+![Script de evaluación](evidencias-javier/script-evaluacion.png)
+[Ver captura del script](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/script-evaluacion.png)
+
+Commit: [614316f](https://github.com/caro-flefil-grupo9/AUY1102-EA2/commit/614316f1ebc436361a051a351fabc4b0e54ba271)
 
 ---
 
@@ -90,30 +105,61 @@ Tras la remediación, se ejecutaron nuevamente las pruebas unitarias y de cobert
 
 ### Evidencias
 ![Panel Inicial SonarCloud](evidencias/04-sonarcloud-inicial.png)
+[Ver captura del análisis inicial de SonarCloud](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/04-sonarcloud-inicial.png)
 *Figura 3.1: Panel inicial de métricas y vulnerabilidades en SonarCloud.*
 
 ![Detalle de Hallazgo SonarCloud](evidencias/05-sonarcloud-hallazgo.png)
+[Ver captura del hallazgo de SonarCloud](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/05-sonarcloud-hallazgo.png)
 *Figura 3.2: Detalle de la vulnerabilidad detectada en SonarCloud (fuga de credenciales o SSTI).*
 
 ![Remediación SonarCloud](evidencias/06-sonarcloud-remediacion.png)
+[Ver captura de remediación de SonarCloud](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/06-sonarcloud-remediacion.png)
 *Figura 3.3: Verificación de la remediación y cierre del hallazgo en SonarCloud.*
+
+Pull Request: [#1 — Pruebas y remediación](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/1)
 
 ---
 
 ## 4. Snyk: Análisis de Dependencias y Código
 
-### Integración y Escaneo
-El proyecto fue importado en la consola web de Snyk bajo la organización `caro-flefil-grupo9`. Snyk realizó un análisis de Software Composition Analysis (SCA) sobre `package.json` y `package-lock.json`, además de análisis estático del código (Snyk Code).
+### 4.1. Integración del repositorio
+Se vinculó el repositorio AUY1102-EA2 con Snyk para analizar las dependencias del proyecto y la imagen utilizada en Docker.
 
-### Hallazgos Principales
-- Detección de vulnerabilidades en dependencias heredadas de desarrollo y producción.
-- Identificación de problemas de severidad alta en paquetes clave como `chokidar` (versión 2.0.3 desactualizada con riesgos de ReDoS y Path Traversal) y herramientas de Babel.
+![Proyectos Snyk](evidencias-javier/snyk-proyectos.png)
+[Ver captura de proyectos Snyk](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/snyk-proyectos.png)
 
-### Evidencias
-![Panel de Snyk](evidencias/08-snyk-inicial.png)
-*Figura 4.1: Reporte del escáner de Snyk detallando dependencias y severidades encontradas.*
+### 4.2. Vulnerabilidad detectada
+Durante el análisis se identificó una vulnerabilidad de severidad alta asociada a la versión de Node.js utilizada en el Dockerfile.
 
-*(Opcional: Capturas de remediación de dependencias `09-snyk-hallazgo.png` y `10-snyk-remediacion.png`).*
+Se detectó el uso de Node.js 14.21.3 mediante la imagen `node:14-alpine3.16`.
+
+![Vulnerabilidad Snyk](evidencias-javier/snyk-vulnerabilidad.png)
+[Ver captura de vulnerabilidad](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/snyk-vulnerabilidad.png)
+
+### 4.3. Remediación del Dockerfile
+Se actualizó la imagen base de Node.js para corregir el hallazgo detectado por Snyk.
+
+Antes:
+
+```dockerfile
+FROM node:14-alpine3.16
+```
+
+Después:
+
+```dockerfile
+FROM node:20.20.0-alpine
+```
+
+Commit de la remediación: [fdb27a5](https://github.com/caro-flefil-grupo9/AUY1102-EA2/commit/fdb27a5e1a8b635e0c3ccc3a6bc0863b9ed180c3)
+
+### 4.4. Verificación de la remediación
+Después de actualizar el Dockerfile, se realizó una nueva revisión en Snyk para comprobar el estado de la imagen actualizada.
+
+![Remediación Snyk](evidencias-javier/snyk-remediacion-verificada.png)
+[Ver captura de verificación Snyk](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/snyk-remediacion-verificada.png)
+
+Pull Request de la remediación: [#3](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/3)
 
 ---
 
@@ -139,30 +185,41 @@ npm audit
 
 ### Evidencias
 ![Reporte npm audit](evidencias/07-npm-audit.png)
+[Ver captura del reporte npm audit](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias/07-npm-audit.png)
 *Figura 5.1: Salida de npm audit en consola resumiendo las 82 vulnerabilidades por nivel de severidad.*
+
+### Evidencia adicional de Javier
+También se ejecutó `npm audit` desde el entorno local para revisar las vulnerabilidades presentes en las dependencias del proyecto.
+
+![npm audit - Evidencia Javier](evidencias-javier/npm-audit.png)
+[Ver captura adicional de npm audit](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/npm-audit.png)
 
 ---
 
 ## 6. GitHub Advanced Security
 
-### Configuración en el Repositorio
-Se accedió a la configuración de seguridad (`Settings > Code security and analysis`) de `AUY1102-EA2` habilitando las herramientas de análisis continuo:
-1. **Dependabot Alerts y Version Updates:** Monitorización activa de versiones obsoletas en `package.json`.
-2. **Secret Scanning:** Detección automática de tokens, llaves API y contraseñas expuestas en commits.
-3. **Code Scanning (CodeQL):** Análisis semántico del código TypeScript para identificar patrones de fallo y debilidades CWE/OWASP.
+### 6.1. Dependabot
+Se verificó la configuración de Dependency Graph, Dependabot Alerts y Dependabot Security Updates para identificar dependencias vulnerables y recibir avisos de seguridad.
 
-### Evidencias
-![Configuración Dependabot](evidencias/11-dependabot-configuracion.png)
-*Figura 6.1: Configuración activa de Dependabot en GitHub.*
+![Dependabot](evidencias-javier/github-dependabot.png)
+[Ver captura de Dependabot](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/github-dependabot.png)
 
-![Alertas Dependabot](evidencias/12-dependabot-alertas.png)
-*Figura 6.2: Alertas automáticas generadas por Dependabot.*
+### 6.2. CodeQL
+Se revisó la configuración de CodeQL mediante Default Setup y se comprobaron los resultados del análisis de código.
 
-![CodeQL Code Scanning](evidencias/13-code-scanning.png)
-*Figura 6.3: Escaneo de código estático mediante CodeQL en GitHub Actions.*
+![Configuración CodeQL](evidencias-javier/github-codeql.png)
+[Ver captura de configuración CodeQL](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/github-codeql.png)
 
-![Secret Scanning](evidencias/14-secret-scanning.png)
-*Figura 6.4: Alerta generada por Secret Scanning detectando el token en credentials.yml.*
+![Resultados CodeQL](evidencias-javier/github-codeql-resultados.png)
+[Ver captura de resultados CodeQL](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/github-codeql-resultados.png)
+
+### 6.3. Secret Protection
+Se revisó la sección Secret Protection de GitHub Advanced Security y la configuración de Push Protection, destinada a prevenir la incorporación de determinadas credenciales al repositorio.
+
+La interfaz revisada no mostraba una opción independiente para habilitar Secret Scanning.
+
+![Secret Protection](evidencias-javier/github-secret-protection.png)
+[Ver captura de Secret Protection](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/evidencias-javier/github-secret-protection.png)
 
 ---
 
@@ -170,13 +227,19 @@ Se accedió a la configuración de seguridad (`Settings > Code security and anal
 
 1. **Aseguramiento Temprano de la Calidad:** Las pruebas unitarias permitieron validar que la lógica central de los Value Objects opera de manera confiable (18/18 pruebas superadas). Sin embargo, el análisis de cobertura evidenció que módulos críticos como `src/quality/` carecían totalmente de pruebas (0%), lo cual incrementa el riesgo de deuda técnica y fallos desapercibidos.
 2. **Detección Estática vs Dependencias:** La integración combinada de SonarCloud y Snyk demostró ser complementaria: mientras SonarCloud detectó malas prácticas de desarrollo y fugas de secretos (`credentials.yml`), Snyk y `npm audit` visibilizaron la vulnerabilidad de la cadena de suministro por dependencias externas desactualizadas (82 alertas).
-3. **Automatización en el Ciclo de Vida:** La incorporación de GitHub Advanced Security y la remediación directa en ramas protegidas mediante Pull Requests facilitan un ciclo de entrega continua (DevSecOps) seguro, resolviendo incidentes antes de su despliegue a producción.
+3. **Automatización en el Ciclo de Vida:** La revisión de las herramientas de GitHub Advanced Security y la integración de cambios mediante Pull Requests contribuyen a un ciclo de entrega continua (DevSecOps) más controlado.
 
 ---
 
 ## 8. Enlaces de Entrega
 
 - **Repositorio oficial de código:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2](https://github.com/caro-flefil-grupo9/AUY1102-EA2)
-- **Pull Request de Pruebas y Remediación:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/1](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/1)
+- **Pull Requests fusionados:**
+  - [PR #1 — Pruebas y remediación](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/1)
+  - [PR #2 — Documentación y evidencias técnicas](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/2)
+  - [PR #3 — Remediación de Snyk](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/3)
+  - [PR #5 — Evidencias](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/5)
+- **Historial de commits de master:** [Ver historial](https://github.com/caro-flefil-grupo9/AUY1102-EA2/commits/master/)
 - **Documento Markdown entregable:** [https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/EVALUACION_EA2.md](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/master/EVALUACION_EA2.md)
 
+Se utilizaron ramas independientes, commits y `push` para proponer las modificaciones mediante Pull Requests y facilitar su revisión e integración.
