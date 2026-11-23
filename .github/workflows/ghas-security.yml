@@ -44,9 +44,11 @@ jobs:
       - name: Verificar protección nativa de GitHub Secret Scanning
         shell: bash
         run: |
-          echo "### GitHub Advanced Security - Secret Scanning" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Escaneo de secretos en árbol de trabajo completado sin hallazgos." >> "$GITHUB_STEP_SUMMARY"
-          echo "- GitHub Secret Scanning y Push Protection habilitados en el repositorio público." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### GitHub Advanced Security - Secret Scanning"
+            echo "- Escaneo de secretos en árbol de trabajo completado sin hallazgos."
+            echo "- GitHub Secret Scanning y Push Protection habilitados en el repositorio público."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   codeql-analysis:
     name: GHAS - CodeQL SAST (javascript-typescript)
@@ -61,12 +63,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Inicializar CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           build-mode: none
 
       - name: Ejecutar análisis CodeQL
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript-ghas'

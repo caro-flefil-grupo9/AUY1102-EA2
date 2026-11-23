@@ -116,12 +116,13 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/auy1102-pipeline:${{ needs.docker-build-and-test.outputs.image_tag }}
           only-severities: critical
           exit-code: true
+          write-comment: false
           sarif-file: docker-scout.sarif
           summary: true
 
       - name: Subir resultados de Docker Scout (SARIF) a GitHub Security
         if: always() && hashFiles('docker-scout.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: docker-scout.sarif
           category: docker-scout
@@ -177,23 +178,23 @@ jobs:
       - name: Snyk Code - Análisis estático de código (SAST)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk code test --severity-threshold=high --sarif-file-output=snyk-code.sarif
+        run: snyk code test --org=frflefil --severity-threshold=high --sarif-file-output=snyk-code.sarif
 
       - name: Snyk Open Source - Análisis de dependencias críticas (SCA)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --severity-threshold=critical --sarif-file-output=snyk-deps.sarif
+        run: snyk test --org=frflefil --severity-threshold=critical --sarif-file-output=snyk-deps.sarif
 
       - name: Subir reporte SARIF de Snyk Code a GitHub Security
         if: always() && hashFiles('snyk-code.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-code.sarif
           category: snyk-code
 
       - name: Subir reporte SARIF de Snyk Dependencias a GitHub Security
         if: always() && hashFiles('snyk-deps.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: snyk-deps.sarif
           category: snyk-deps
