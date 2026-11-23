@@ -1,0 +1,264 @@
+name: CI/CD Pipeline EP3 - Docker, Calidad y Seguridad
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: auy1102-pipeline
+
+jobs:
+  docker-build-and-test:
+    name: 1. Docker Build y Pruebas Unitarias en Contenedor
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/auy1102-pipeline
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Definir etiquetas de imagen Docker
+        id: meta
+        shell: bash
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            IMAGE_TAG="pr-${{ github.event.pull_request.number }}"
+          elif [ "${GITHUB_REF_NAME}" = "develop" ]; then
+            IMAGE_TAG="develop"
+          else
+            IMAGE_TAG="manual-${SHORT_SHA}"
+          fi
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=sha-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Construir imagen Docker de pruebas (stage test)
+        run: docker build --target test -t auy1102-test:ci .
+
+      - name: Ejecutar pruebas unitarias y cobertura dentro del contenedor Docker
+        run: |
+          mkdir -p "${{ github.workspace }}/coverage"
+          chmod 777 "${{ github.workspace }}/coverage"
+          docker run --rm \
+            -v "${{ github.workspace }}/coverage:/usr/src/app/coverage" \
+            auy1102-test:ci npm run test:coverage
+
+      - name: Subir reporte de cobertura generado en Docker
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-coverage
+          path: coverage/
+          retention-days: 1
+
+      - name: Construir imagen Docker de producción (stage production)
+        run: |
+          docker build --target production \
+            -t "${IMAGE_REPO}:${{ steps.meta.outputs.image_tag }}" \
+            -t "${IMAGE_REPO}:${{ steps.meta.outputs.sha_tag }}" \
+            .
+
+      - name: Validar ejecución del contenedor de producción
+        run: docker run --rm "${IMAGE_REPO}:${{ steps.meta.outputs.image_tag }}"
+
+      - name: Guardar imagen Docker para Docker Scout y despliegue
+        run: |
+          docker save "${IMAGE_REPO}:${{ steps.meta.outputs.image_tag }}" | gzip > docker-image.tar.gz
+
+      - name: Subir artefacto de imagen Docker
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-production-image
+          path: docker-image.tar.gz
+          retention-days: 1
+
+  docker-scout:
+    name: 2. Análisis de Seguridad de Imagen con Docker Scout
+    needs: [docker-build-and-test]
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/auy1102-pipeline
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar imagen Docker construida
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-production-image
+
+      - name: Cargar imagen en el daemon local de Docker
+        run: gunzip -c docker-image.tar.gz | docker load
+
+      - name: Iniciar sesión en Docker Hub para Docker Scout
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Ejecutar Docker Scout (interrumpe si hay CVEs críticas)
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/auy1102-pipeline:${{ needs.docker-build-and-test.outputs.image_tag }}
+          only-severities: critical
+          exit-code: true
+          sarif-file: docker-scout.sarif
+          summary: true
+
+      - name: Subir resultados de Docker Scout (SARIF) a GitHub Security
+        if: always() && hashFiles('docker-scout.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: docker-scout.sarif
+          category: docker-scout
+
+  sonarcloud:
+    name: 3. Análisis Estático y Quality Gate con SonarCloud
+    needs: [docker-build-and-test]
+    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio (historial completo para SonarCloud)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Descargar reporte de cobertura generado en Docker
+        uses: actions/download-artifact@v4
+        with:
+          name: jest-coverage
+          path: coverage/
+
+      - name: Ejecutar análisis SonarCloud y validar Quality Gate
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.qualitygate.wait=true
+
+  snyk-security:
+    name: 4. Análisis Estático y de Dependencias con Snyk
+    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependencias de producción
+        run: npm ci --omit=dev --ignore-scripts
+
+      - name: Configurar Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Snyk Code - Análisis estático de código (SAST)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk code test --severity-threshold=high --sarif-file-output=snyk-code.sarif
+
+      - name: Snyk Open Source - Análisis de dependencias críticas (SCA)
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --severity-threshold=critical --sarif-file-output=snyk-deps.sarif
+
+      - name: Subir reporte SARIF de Snyk Code a GitHub Security
+        if: always() && hashFiles('snyk-code.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-code.sarif
+          category: snyk-code
+
+      - name: Subir reporte SARIF de Snyk Dependencias a GitHub Security
+        if: always() && hashFiles('snyk-deps.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk-deps.sarif
+          category: snyk-deps
+
+  github-advanced-security:
+    name: 5. GitHub Advanced Security
+    uses: ./.github/workflows/ghas-security.yml
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+      pull-requests: read
+
+  deploy-dockerhub:
+    name: 6. Publicación en Docker Hub (solo si calidad y seguridad pasan)
+    needs:
+      - docker-build-and-test
+      - docker-scout
+      - sonarcloud
+      - snyk-security
+      - github-advanced-security
+    if: >-
+      always() &&
+      needs.docker-build-and-test.result == 'success' &&
+      needs.docker-scout.result == 'success' &&
+      needs.github-advanced-security.result == 'success' &&
+      (needs.sonarcloud.result == 'success' || (needs.sonarcloud.result == 'skipped' && github.event_name == 'push')) &&
+      (needs.snyk-security.result == 'success' || (needs.snyk-security.result == 'skipped' && github.event_name == 'push'))
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/auy1102-pipeline
+    steps:
+      - name: Descargar imagen Docker verificada
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-production-image
+
+      - name: Cargar imagen Docker verificada
+        run: gunzip -c docker-image.tar.gz | docker load
+
+      - name: Iniciar sesión en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Publicar imagen en Docker Hub
+        shell: bash
+        run: |
+          IMAGE_TAG="${{ needs.docker-build-and-test.outputs.image_tag }}"
+          SHA_TAG="${{ needs.docker-build-and-test.outputs.sha_tag }}"
+
+          docker tag "${IMAGE_REPO}:${IMAGE_TAG}" "${IMAGE_REPO}:${SHA_TAG}"
+          docker push "${IMAGE_REPO}:${IMAGE_TAG}"
+          docker push "${IMAGE_REPO}:${SHA_TAG}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            docker tag "${IMAGE_REPO}:${IMAGE_TAG}" "${IMAGE_REPO}:latest"
+            docker push "${IMAGE_REPO}:latest"
+          fi
+
+          {
+            echo "### Despliegue exitoso en Docker Hub"
+            echo "- **Repositorio:** \`${IMAGE_REPO}\`"
+            echo "- **Tags publicados:** \`${IMAGE_TAG}\`, \`${SHA_TAG}\`"
+            echo "- **URL:** https://hub.docker.com/r/${IMAGE_REPO}"
+          } >> "$GITHUB_STEP_SUMMARY"

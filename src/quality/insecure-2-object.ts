@@ -1,32 +1,48 @@
-const username = "admin'; DROP TABLE Users; --";
-const queryString = `SELECT * FROM Users WHERE username='${username}'`;
+// Remediación EP3: se eliminan vulnerabilidades críticas (SQLi, XSS, credenciales hardcodeadas, JSON sin validar)
 
-// XSS
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
-const userInput = '<script>alert("XSS");</script>';
-const html = `<div>${userInput}</div>`;
+function buildParameterizedUserQuery(username: string): {
+  query: string;
+  params: string[];
+} {
+  return {
+    query: 'SELECT * FROM Users WHERE username = ?',
+    params: [username],
+  };
+}
 
-// CSRF
+function renderSafeDiv(userInput: string): string {
+  return `<div>${escapeHtml(userInput)}</div>`;
+}
 
-app.post('/change-password', (req, res) => {
-  const newPassword = req.body.newPassword;
-  // Cambiar la contraseña sin verificar el token CSRF
-});
+function safeParseJson<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
 
-// Deserialización
+function getDatabaseConfig() {
+  return {
+    dbUsername: process.env.DB_USERNAME ?? '',
+    dbPassword: process.env.DB_PASSWORD ?? '',
+    apiKey: process.env.API_KEY ?? '',
+  };
+}
 
-const data = JSON.parse(req.body);
-
-// Credenciales
-
-const dbPassword = 'password123';
-// const apiSecretKey = 'supersecretkey123'; // No usar en producción
-const config = {
-  dbUsername: 'admin',
-  dbPassword: 'password123',
-  apiKey: 'abc123',
+export {
+  escapeHtml,
+  buildParameterizedUserQuery,
+  renderSafeDiv,
+  safeParseJson,
+  getDatabaseConfig,
 };
-
-const hashedPassword = hash('password123');
-
-console.log(`Error: La contraseña ${dbPassword} no es válida`);
