@@ -1,29 +1,27 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const pug = require('pug');
+import { escapeHtml } from './insecure-2-object';
 
-const app = express();
+// Remediación EP2/EP3 (SonarCloud SSTI + Snyk Code XSS)
+// Se sanitiza estrictamente la entrada del usuario y se escapa el contenido HTML
+// evitando inyección de plantillas (SSTI) y Cross-Site Scripting (XSS).
 
-app.use(bodyParser.urlencoded({ extended: true }));
+export function sanitizeUsername(rawInput: unknown): string {
+  const value = typeof rawInput === 'string' ? rawInput : '';
+  return value.replace(/[^a-zA-Z0-9 _.-]/g, '').trim();
+}
 
-// Remediación SonarCloud (Reglas tssecurity:S5496 y typescript:S7790)
-// Se evita la inyección en plantilla (SSTI) compilando una plantilla estática y pasando los parámetros como variables locales
-const compiledTemplate = pug.compile(`doctype html
-html
-  head
-    title Hello world
-  body
-    form(action='/' method='post')
-      input#username.form-control(type='text' name='username' value=username)
-      button.btn.btn-primary(type='submit') Submit
-    p Hello #{username}`);
-
-app.post('/', (req, res) => {
-  const input = req.body.username;
-  const html = compiledTemplate({ username: input });
-  res.send(html);
-});
-
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
+export function renderGreetingPage(rawUsername: unknown): string {
+  const safeUsername = escapeHtml(sanitizeUsername(rawUsername));
+  return [
+    '<!doctype html>',
+    '<html>',
+    '<head><title>Hello world</title></head>',
+    '<body>',
+    '<form action="/" method="post">',
+    `<input id="username" class="form-control" type="text" name="username" value="${safeUsername}" />`,
+    '<button class="btn btn-primary" type="submit">Submit</button>',
+    '</form>',
+    `<p>Hello ${safeUsername}</p>`,
+    '</body>',
+    '</html>',
+  ].join('');
+}

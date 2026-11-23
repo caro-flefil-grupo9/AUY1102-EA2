@@ -1,0 +1,2 @@
+# Identificador público del proyecto en SonarCloud (no es una credencial ni API key)
+sonar-project.properties:generic-api-key:1
