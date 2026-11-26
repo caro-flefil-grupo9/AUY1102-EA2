@@ -41,13 +41,14 @@ jobs:
           ./gitleaks detect --no-git --source=. --verbose --redact
           rm -f gitleaks gitleaks.tar.gz
 
-      - name: Verificar protección nativa de GitHub Secret Scanning
+      - name: Registrar resultado del escaneo de secretos con Gitleaks
         shell: bash
         run: |
           {
-            echo "### GitHub Advanced Security - Secret Scanning"
-            echo "- Escaneo de secretos en árbol de trabajo completado sin hallazgos."
-            echo "- GitHub Secret Scanning y Push Protection habilitados en el repositorio público."
+            echo "### GitHub Advanced Security - Escaneo de Secretos en CI (Gitleaks)"
+            echo "- **Herramienta ejecutada en workflow:** Gitleaks v8.21.2 (\`gitleaks detect --no-git --source=. --verbose --redact\`)."
+            echo "- **Resultado en el árbol de trabajo (\`${GITHUB_SHA::7}\`):** Escaneo completado sin hallazgos de secretos expuestos."
+            echo "- **Alcance:** Este job valida únicamente el análisis con Gitleaks en GitHub Actions; los controles nativos de GitHub (Secret Scanning y Push Protection) se gestionan y verifican de forma independiente en la configuración del repositorio."
           } >> "$GITHUB_STEP_SUMMARY"
 
   codeql-analysis:
