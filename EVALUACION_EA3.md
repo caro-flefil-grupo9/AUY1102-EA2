@@ -20,7 +20,7 @@
 ### Estrategia de Ramas (Continuación de EP2)
 - **`master`**: se mantiene intacta con el historial y entregables de la Evaluación Parcial 2 ([EVALUACION_EA2.md](EVALUACION_EA2.md)).
 - **`develop`**: rama de integración donde se desarrolla y valida continuamente cada `push` con construcción Docker, pruebas unitarias dentro del contenedor, Docker Scout, GitHub Advanced Security y publicación en Docker Hub (`develop` / `sha-<commit>`).
-- **`main`**: rama principal protegida mediante Pull Requests desde `develop`, que ejecutan el pipeline completo de calidad y seguridad (incluyendo SonarCloud, Snyk, Dependency Review, Escaneo de Secretos, CodeQL y Docker Scout) antes de autorizar el despliegue (`pr-<n>` / `latest`).
+- **`main`**: rama principal integrada mediante Pull Requests desde `develop` (sin reglas activas de protección de rama en `Settings → Branches`, gestionando la integración controlada mediante flujo de PR), donde se ejecuta el pipeline completo de calidad y seguridad (incluyendo SonarCloud, Snyk, Dependency Review, Escaneo de Secretos, CodeQL y Docker Scout) antes de autorizar el despliegue (`pr-<n>` / `latest`).
 
 ---
 
@@ -100,11 +100,11 @@ El job `deploy-dockerhub` carga exactamente la misma imagen verificada por Docke
 - Integrado mediante `snyk/actions/setup@master` en cada Pull Request hacia `main`:
   - **Snyk Code (SAST):** `snyk code test --org=frflefil --severity-threshold=high --sarif-file-output=snyk-code.sarif`
   - **Snyk Open Source (SCA):** `snyk test --org=frflefil --severity-threshold=critical --sarif-file-output=snyk-deps.sarif`
-- Los resultados SARIF se suben automáticamente a la pestaña **Security → Code scanning** de GitHub.
+- Los resultados SARIF se suben automáticamente a la pestaña **Security → Code scanning** de GitHub. El análisis valida el cumplimiento de los umbrales configurados (`high` para Snyk Code SAST y `critical` para Snyk Open Source SCA sobre dependencias de producción `--omit=dev`).
 
 ### 4.3 GitHub Advanced Security ([`ghas-security.yml`](.github/workflows/ghas-security.yml) y [`.github/dependabot.yml`](.github/dependabot.yml))
-- **Análisis de dependencias:** `actions/dependency-review-action@v4` en Pull Requests a `main` con `fail-on-severity: critical`, complementado con Dependabot configurado para ecosistemas `npm`, `docker` y `github-actions`.
-- **Escaneo de secretos:** GitHub Secret Scanning y Push Protection habilitados en el repositorio público, reforzados en CI por **Gitleaks** (`gitleaks detect --no-git --source=. --redact`) con exclusión justificada en [`.gitleaksignore`](.gitleaksignore) únicamente para el identificador público `sonar.projectKey`.
+- **Análisis de dependencias:** `actions/dependency-review-action@v4` en Pull Requests a `main` con `fail-on-severity: critical`, complementado con archivo [`.github/dependabot.yml`](.github/dependabot.yml) para ecosistemas `npm`, `docker` y `github-actions` y con **Dependency graph**, **Dependabot alerts** y **Dependabot security updates** habilitados en la configuración nativa del repositorio.
+- **Escaneo de secretos:** se distingue entre (1) **GitHub Secret Protection y Push Protection**, habilitados de forma nativa en la configuración del repositorio (`Settings → Advanced Security`), y (2) **Gitleaks** (`gitleaks detect --no-git --source=. --verbose --redact`), ejecutado como job de CI en GitHub Actions con exclusión justificada en [`.gitleaksignore`](.gitleaksignore) únicamente para el identificador público `sonar.projectKey`.
 - **Análisis estático CodeQL:** `github/codeql-action/init@v4` y `analyze@v4` para `javascript-typescript`.
 
 ### 4.4 Docker Scout
@@ -125,9 +125,9 @@ Durante las pruebas en vivo en GitHub Actions, el pipeline demostró su capacida
 | **Snyk Code (SAST)** | Vulnerabilidad **HIGH** de Cross-Site Scripting (XSS) en `src/quality/insecure-1-object.ts` línea 24 (Run `#45208709318`). | Refactorización de `src/quality/insecure-1-object.ts` con sanitización estricta de entrada y escape HTML + suite de pruebas unitarias `test/quality/insecure-1-object.test.ts` (commit `e82c5f4`). | **0 issues HIGH/CRITICAL** — Snyk aprobado ✅ |
 | **SonarCloud / Secret Scanning** | Credencial hardcodeada en `.npmrc` (`secrets:S6689`), secretos en `src/index.ts` y patrones inseguros (SQLi, XSS, contraseñas en texto plano) en `src/quality/insecure-2-object.ts`. | Sustitución por variables de entorno (`${NODE_AUTH_TOKEN}`), limpieza de `src/index.ts`, remediación segura en `src/quality/insecure-2-object.ts` y pruebas unitarias `test/quality/insecure-2-object.test.ts` (commit `92b90d7`). | **Quality Gate OK (100% cobertura en código nuevo)** ✅ |
 
-### Ejecuciones Verificadas en Verde
-- **Pull Request #7 (`develop` → `main`):** [Run #45210240824](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45210240824) — Todos los jobs (Docker Build + Tests, Docker Scout, SonarCloud, Snyk, GHAS Dependency Review, GHAS Secret Scanning, GHAS CodeQL y Deploy Docker Hub) en estado `success`.
-- **Push a `develop`:** [Run #45210229303](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45210229303) — Todos los jobs aplicables en estado `success` con publicación en Docker Hub.
+### Ejecuciones Históricas Verificadas en Verde (Francisco Flefil)
+- **Pull Request #7 (`develop` → `main`):** [Run #45210240824](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45210240824) y [Run #45213732496](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45213732496) — Todos los jobs (Docker Build + Tests, Docker Scout, SonarCloud, Snyk, GHAS Dependency Review, GHAS Secret Scanning, GHAS CodeQL y Deploy Docker Hub) en estado `success`.
+- **Push a `develop`:** [Run #45210229303](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45210229303) y [Run #45213717370](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45213717370) — Todos los jobs aplicables en estado `success` con publicación en Docker Hub.
 
 ---
 
@@ -145,4 +145,107 @@ Durante las pruebas en vivo en GitHub Actions, el pipeline demostró su capacida
 | :--- | :---: | :--- |
 | **IL4.1 / IE4.1.1:** Reconoce componentes de CI/CD, manteniendo la integridad del código y respetando consideraciones éticas, para automatizar procesos y reducir la intervención manual. | 33% | Separación de ramas (`develop`/`main`), uso exclusivo de *Repository Secrets*, eliminación de secretos hardcodeados (`.npmrc`, `src/index.ts`, `src/quality/insecure-2-object.ts`), mínimo privilegio en workflows y contenedores (`USER node`). |
 | **IL4.2 / IE4.2.1:** Diseña pipelines de CI/CD, garantizando la calidad y la entrega continua del producto, para automatizar la compilación, prueba y despliegue de software en un contexto de desarrollo ágil. | 33% | Diseño modular con `Dockerfile` multi-stage, `.dockerignore`, `sonar-project.properties`, workflow principal (`ci-cd-ep3.yml`) y workflow reutilizable de seguridad (`ghas-security.yml`) con disparadores en `push` a `develop` y `pull_request` a `main`, y compuerta estricta antes de `deploy-dockerhub`. |
-| **IL4.3 / IE4.3.1:** Implementa pipelines de CI/CD, para automatizar la compilación, prueba y despliegue de software en un contexto de desarrollo ágil, garantizando la calidad y la entrega continua del producto. | 34% | Ejecución real y verificada en verde en GitHub Actions (PR #7 y `develop`), pruebas ejecutadas dentro del contenedor Docker (24/24 aprobadas), SonarCloud Quality Gate OK (100% cobertura en código nuevo), Snyk Code + SCA OK, GHAS OK, Docker Scout 0 CVEs críticas e imagen publicada en Docker Hub (`fflefil/auy1102-pipeline`). |
+| **IL4.3 / IE4.3.1:** Implementa pipelines de CI/CD, para automatizar la compilación, prueba y despliegue de software en un contexto de desarrollo ágil, garantizando la calidad y la entrega continua del producto. | 34% | Ejecución real y verificada en verde en GitHub Actions (PR #7, PR #8, PR #9 y `develop`), compilación efectiva de TypeScript y pruebas ejecutadas dentro del contenedor Docker (24/24 aprobadas), SonarCloud Quality Gate OK (100% cobertura en código nuevo), Snyk Code + SCA OK bajo los umbrales configurados, GHAS OK, Docker Scout 0 CVEs críticas e imagen publicada en Docker Hub (`fflefil/auy1102-pipeline`). |
+
+---
+
+## Validaciones y evidencias adicionales — Javier Caro
+
+Durante la intervención de **Javier Caro** (`warawara-wiwi`) desde la rama de trabajo `ea3-javier-seguridad`, se conservaron los workflows y remediaciones implementados previamente por Francisco Flefil y se efectuaron las siguientes validaciones técnicas, correcciones puntuales y capturas de evidencia real:
+
+### 1. Compilación efectiva en Docker y ejecución del contenedor de producción
+
+Se verificó la construcción de la imagen Docker multi-stage y se incorporó en [`Dockerfile`](Dockerfile) la compilación efectiva del proyecto TypeScript mediante `RUN npm run build` en la etapa `test`. En la etapa `production` (`node:22-alpine`) se copió el artefacto compilado `dist/` junto con `tslib` desde la etapa de construcción y se actualizó el comando final (`CMD`) para cargar `./dist/index.js` y comprobar en tiempo de ejecución los símbolos exportados por la librería (`EnumValueObject`, `NumberValueObject`, `StringValueObject`, `DateValueObject`).
+
+- **Commit:** [`4fa794f` — `fix(docker): validar compilacion del proyecto`](https://github.com/caro-flefil-grupo9/AUY1102-EA2/commit/4fa794f314d57f3408e164b59d42831ba54d0c27)
+
+![Construcción de imagen Docker](evidencias-ea3-javier/01-docker-build.png)
+
+[Ver captura](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/01-docker-build.png)
+
+[Ver job de construcción Docker en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174232633)
+
+### 2. Pruebas unitarias y cobertura dentro del contenedor Docker
+
+Se ejecutaron las pruebas unitarias y el análisis de cobertura (`npm run test:coverage`) dentro del contenedor Docker tanto en validación local como en GitHub Actions, verificando **12 suites aprobadas** y **24 pruebas unitarias aprobadas** (70,96% de cobertura de sentencias y líneas, 83,33% de ramas y 76,92% de funciones).
+
+![Pruebas unitarias y cobertura en Docker](evidencias-ea3-javier/02-pruebas-unitarias-docker.png)
+
+[Ver captura](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/02-pruebas-unitarias-docker.png)
+
+[Ver job de pruebas unitarias en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174232633)
+
+### 3. Revisión de GitHub Advanced Security y precisión en Gitleaks
+
+Se revisó la configuración de GitHub Advanced Security en el repositorio (`Settings → Advanced Security`) y se ajustó el paso de resumen en [`.github/workflows/ghas-security.yml`](.github/workflows/ghas-security.yml) para registrar únicamente el resultado real del análisis ejecutado por **Gitleaks v8.21.2** en GitHub Actions, distinguiéndolo de los controles nativos del repositorio (**GitHub Secret Protection** y **Push Protection**, verificados como activos en la interfaz de configuración de GitHub junto con **Dependency graph**, **Dependabot alerts** y **Dependabot security updates**).
+
+- **Commit:** [`d8ab586` — `fix(security): corregir validacion GHAS`](https://github.com/caro-flefil-grupo9/AUY1102-EA2/commit/d8ab5863c917a298685a63349c3b371b2fa52063)
+
+![Configuración nativa de GitHub Advanced Security](evidencias-ea3-javier/04-github-advanced-security.png)
+
+[Ver captura](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/04-github-advanced-security.png)
+
+[Ver job de Gitleaks en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174232753)
+
+[Ver job de Dependency Review en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174232557)
+
+[Ver job de CodeQL SAST en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174232561)
+
+### 4. Integración mediante Pull Request hacia `develop` y ejecución del pipeline en `develop`
+
+Se creó y fusionó mediante la interfaz gráfica de GitHub el Pull Request #8 (`ea3-javier-seguridad` → `develop`), comprobando la activación automática del pipeline por evento `push` sobre la rama `develop`.
+
+- **Pull Request hacia `develop`:** [PR #8 — `EP3: validación de compilación Docker y ajuste de resumen GHAS`](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/8)
+- **Commit de merge en `develop`:** [`dd124fd`](https://github.com/caro-flefil-grupo9/AUY1102-EA2/commit/dd124fd8522bc361ff338f5be8771e8364470807)
+
+![Pull Request de Javier Caro](evidencias-ea3-javier/08-pull-request-javier.png)
+
+[Ver captura del Pull Request #8](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/08-pull-request-javier.png)
+
+![Ejecución del pipeline en push a develop](evidencias-ea3-javier/10-pipeline-develop.png)
+
+[Ver captura del pipeline en develop](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/10-pipeline-develop.png)
+
+[Ver ejecución de GitHub Actions en develop (Run #45896939621)](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45896939621)
+
+### 5. Ejecución completa del pipeline mediante Pull Request hacia `main`
+
+Se comprobó la ejecución completa de los controles correspondientes al pipeline CI/CD mediante el Pull Request #9 (`develop` → `main`), verificando que todos los jobs obligatorios (Docker Build y pruebas en contenedor, Docker Scout, SonarCloud Quality Gate, Snyk Code y Snyk Open Source, GHAS Dependency Review, GHAS Escaneo de Secretos, GHAS CodeQL y publicación en Docker Hub) finalizaron en estado `success`.
+
+- **Pull Request hacia `main`:** [PR #9 — `EP3: validación y mejoras del pipeline CI/CD`](https://github.com/caro-flefil-grupo9/AUY1102-EA2/pull/9)
+
+![Pipeline CI/CD completo en GitHub Actions](evidencias-ea3-javier/03-pipeline-github-actions.png)
+
+[Ver captura](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/03-pipeline-github-actions.png)
+
+[Ver ejecución completa de GitHub Actions (Run #45897289432)](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432)
+
+[Ver job de SonarCloud Quality Gate](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174798537)
+
+### 6. Análisis de seguridad con Snyk y Docker Scout
+
+Se verificó la ejecución de **Snyk Code (SAST)** (`--severity-threshold=high`) y **Snyk Open Source (SCA)** (`--severity-threshold=critical`) junto con el análisis de vulnerabilidades críticas de imagen mediante **Docker Scout** (`0C / 0H / 0M / 0L`).
+
+![Análisis estático y de dependencias con Snyk](evidencias-ea3-javier/05-snyk-analisis.png)
+
+[Ver captura de Snyk](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/05-snyk-analisis.png)
+
+[Ver job de Snyk en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174232271)
+
+![Análisis de imagen con Docker Scout](evidencias-ea3-javier/06-docker-scout.png)
+
+[Ver captura de Docker Scout](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/06-docker-scout.png)
+
+[Ver job de Docker Scout en GitHub Actions](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140174798540)
+
+### 7. Publicación verificada en Docker Hub
+
+Se verificó la publicación automática de las imágenes validadas en el repositorio público de Docker Hub [`fflefil/auy1102-pipeline`](https://hub.docker.com/r/fflefil/auy1102-pipeline/tags) con las etiquetas correspondientes (`develop`, `pr-9`, `sha-d171960` / `sha-dd124fd` y `latest`).
+
+![Publicación de imagen en Docker Hub](evidencias-ea3-javier/07-dockerhub-publicacion.png)
+
+[Ver captura de Docker Hub](https://github.com/caro-flefil-grupo9/AUY1102-EA2/blob/main/evidencias-ea3-javier/07-dockerhub-publicacion.png)
+
+[Ver job de publicación en Docker Hub](https://github.com/caro-flefil-grupo9/AUY1102-EA2/actions/runs/45897289432/job/140175109306)
+
+[Ver repositorio en Docker Hub](https://hub.docker.com/r/fflefil/auy1102-pipeline/tags)
