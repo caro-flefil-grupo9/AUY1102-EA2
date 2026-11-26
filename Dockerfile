@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 
 COPY . .
+RUN npm run build
 
 CMD ["npm", "run", "test:unit"]
 
@@ -27,9 +28,11 @@ RUN npm ci --omit=dev --ignore-scripts \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
               /usr/local/lib/node_modules/corepack /usr/local/bin/corepack /opt/yarn*
 
+COPY --from=test --chown=node:node /usr/src/app/dist ./dist
+COPY --from=test --chown=node:node /usr/src/app/node_modules/tslib ./node_modules/tslib
 COPY --chown=node:node src ./src
 COPY --chown=node:node tsconfig.json ./
 
 USER node
 
-CMD ["node", "-e", "console.log('AUY1102 CI/CD Application Container Ready')"]
+CMD ["node", "-e", "const lib = require('./dist/index.js'); console.log('AUY1102 CI/CD Application Container Ready - Exported symbols:', Object.keys(lib).join(', '))"]
